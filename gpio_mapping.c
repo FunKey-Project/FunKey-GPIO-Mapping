@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <sys/select.h>
+#include <sys/time.h>
 #include <linux/input.h>
 #include "gpio_mapping.h"
 #include "driver_pcal6416a.h"
@@ -34,6 +35,10 @@
 #else
 #define GPIO_ERROR_PRINTF(...)
 #endif
+
+// This define forces to perform a gpio sanity check after a timeout. 
+// If not declared, there will be no timeout and no periodical sanity check of GPIO expander values
+#define TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP	2
 
 
 /****************************************************************
@@ -277,11 +282,23 @@ int listen_gpios_interrupts(void)
 	memset(mask_gpio_value, false, nb_mapped_gpios*sizeof(bool));
 	memset(mask_gpio_current_interrupts, false, nb_mapped_gpios*sizeof(bool));
 
-	// Note the max_fd+1 
-	if (select(max_fd+1, NULL, NULL, &dup, NULL) < 0) {
+	// Waiting for interrupt or timeout, Note the max_fd+1
+#ifdef TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP
+	struct timeval timeout = {TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP, 0};
+	int nb_interrupts = select(max_fd+1, NULL, NULL, &dup, &timeout);
+#else
+	int nb_interrupts = select(max_fd+1, NULL, NULL, &dup, NULL);
+#endif //TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP
+	if(!nb_interrupts){
+		// Timeout case 
+		GPIO_PRINTF("	Timeout, forcing sanity check\n");
+		// Timeout forcing a "Found interrupt" event for sanity check
+		interrupt_found = true;
+	}
+	else if ( nb_interrupts < 0) {
 		perror("select");
 		return -1;
-	} 
+	}
 
 	// Check if interrupt from I2C expander
 	// Check which cur_fd is available for read 
@@ -323,6 +340,14 @@ int listen_gpios_interrupts(void)
 			if(val_i2c_mask_interrupted & tmp_mask_gpio){
 				// Print information
 				GPIO_PRINTF("	--> Interrupt GPIO: %d, idx_pin: %d\n", gpio_pins[idx_gpio], idx_gpio);
+				mask_gpio_current_interrupts[idx_gpio] = true;
+			}
+
+			// Sanity check: if we missed an interrupt for some reason, check if the new values are the same
+			if( !mask_gpio_current_interrupts[idx_gpio] && 
+				(mask_gpio_value[idx_gpio] != previous_mask_gpio_value[idx_gpio]) ){
+				// Print information
+				GPIO_PRINTF("	--> No Interrupt (missed) but value has changed on GPIO: %d, idx_pin: %d\n", gpio_pins[idx_gpio], idx_gpio);
 				mask_gpio_current_interrupts[idx_gpio] = true;
 			}
 		}
