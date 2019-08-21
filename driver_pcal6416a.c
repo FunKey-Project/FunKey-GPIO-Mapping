@@ -10,7 +10,9 @@
 #include <linux/input.h>
 #include "read_conf_file.h"
 #include <assert.h>
+#include <linux/i2c.h>
 #include <linux/i2c-dev.h>
+#include "smbus.h"
 #include "driver_pcal6416a.h"
 
 /****************************************************************

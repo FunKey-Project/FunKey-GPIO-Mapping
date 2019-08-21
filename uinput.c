@@ -30,7 +30,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <linux/input.h>
-#include <linux/uinput.h>
+//#include <linux/uinput.h>
+#include "uinput_linux.h"
 //#include "config.h"
 //include "daemon.h"
 #include "uinput.h"

@@ -1,13 +1,11 @@
-TOOLS_CFLAGS	:= -Wstrict-prototypes -Wshadow -Wpointer-arith -Wcast-qual \
-		   -Wcast-align -Wwrite-strings -Wnested-externs -Winline \
-		   -W -Wundef -Wmissing-prototypes
+TOOLS_CFLAGS	:= -Wall -std=c99 -D _DEFAULT_SOURCE
 #
 # Programs
 #
 all:	funkey_gpio_management 
 
-funkey_gpio_management:  funkey_gpio_management.o gpio-utils.o uinput.o gpio_mapping.o read_conf_file.o keydefs.o driver_pcal6416a.o
-	$(CC) $(LDFLAGS) -o $@ $^
+funkey_gpio_management:  funkey_gpio_management.o gpio-utils.o uinput.o gpio_mapping.o read_conf_file.o keydefs.o driver_pcal6416a.o smbus.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 
 #
