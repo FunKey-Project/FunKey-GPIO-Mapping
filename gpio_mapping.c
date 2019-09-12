@@ -12,6 +12,7 @@
 #include <linux/input.h>
 #include "gpio_mapping.h"
 #include "driver_pcal6416a.h"
+#include "driver_axp209.h"
 
 /****************************************************************
  * Defines
@@ -21,7 +22,7 @@
         return(EXIT_FAILURE); \
     } while(0)
 
-#define DEBUG_GPIO_PRINTF 			(0)
+#define DEBUG_GPIO_PRINTF 			(1)
 #define ERROR_GPIO_PRINTF 			(1)
 
 #if (DEBUG_GPIO_PRINTF)
@@ -40,6 +41,9 @@
 // If not declared, there will be no timeout and no periodical sanity check of GPIO expander values
 #define TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP	2
 
+// This is for debug purposes on cards or eval boards that do not have the AXP209
+//#define ENABLE_AXP209_INTERRUPTS
+
 
 /****************************************************************
  * Static variables
@@ -48,9 +52,12 @@ static int nb_mapped_gpios;
 static int * gpio_pins;
 STRUCT_MAPPED_GPIO * chained_list_mapping;
 static int max_fd = 0;
-static int gpio_fd_interrupt_i2c;
+static int gpio_fd_interrupt_expander_gpio;
+static int gpio_fd_interrupt_axp209;
 static fd_set fds;
 static bool * mask_gpio_value;
+static bool interrupt_i2c_expander_found = false;
+static bool interrupt_axp209_found = false;
 
 
 /****************************************************************
@@ -178,37 +185,37 @@ static void find_and_call_mapping_function(int idx_gpio_interrupted,
 }
 
 /*****  Init GPIO Interrupt i2c expander fd  *****/
-static int init_gpio_interrupt(void)
+static int init_gpio_interrupt(int pin_nb, int *fd_saved)
 {
   	// Variables
-  	int cur_pin_nb = GPIO_PIN_I2C_EXPANDER_INTERRUPT;
-  	GPIO_PRINTF("Initializing Interrupt i2c expander GPIO pin fd: %d\n", cur_pin_nb);
+  	GPIO_PRINTF("Initializing Interrupt on GPIO pin: %d\n", pin_nb);
 	  
 	// Init fds fd_set 
 	FD_ZERO(&fds);
 	  
 	//Initializing I2C interrupt GPIO
-	gpio_export(cur_pin_nb); 
+	gpio_export(pin_nb); 
 	//gpio_set_edge(cur_pin_nb, "both");  // Can be rising, falling or both
-	gpio_set_edge(cur_pin_nb, "falling");  // Can be rising, falling or both
-	gpio_fd_interrupt_i2c = gpio_fd_open(cur_pin_nb, O_RDONLY);
+	gpio_set_edge(pin_nb, "falling");  // Can be rising, falling or both
+	*fd_saved = gpio_fd_open(pin_nb, O_RDONLY);
+  	GPIO_PRINTF("fd is: %d\n", *fd_saved);
 		
 	// add stdin and the sock fd to fds fd_set 
-	safe_fd_set(gpio_fd_interrupt_i2c, &fds, &max_fd);
+	safe_fd_set(*fd_saved, &fds, &max_fd);
 
 	return 0;
 }
 
 /*****  DeInit GPIO Interrupt i2c expander fd  *****/
-static int deinit_gpio_interrupt(void)
+static int deinit_gpio_interrupt(int fd_saved)
 { 
-  	GPIO_PRINTF("DeInitializing Interrupt i2c expander GPIO pin fd\n");
+  	GPIO_PRINTF("DeInitializing Interrupt on GPIO pin fd: %d\n", fd_saved);
 
 	// Remove stdin and  sock fd from fds fd_set 
-	safe_fd_clr(gpio_fd_interrupt_i2c, &fds, &max_fd);
+	safe_fd_clr(fd_saved, &fds, &max_fd);
 	
 	// Unexport GPIO
-	gpio_fd_close(gpio_fd_interrupt_i2c);
+	gpio_fd_close(fd_saved);
 
 	return 0;
 }
@@ -242,11 +249,21 @@ int init_mapping_gpios(int * gpio_pins_to_declare, int nb_gpios_to_declare,
 		current = current->next_mapped_gpio;
 	} while(current != NULL);
 
-	// Init GPIO interrupt from I2C expander
-	init_gpio_interrupt();
+	// Init GPIO interrupt from I2C GPIO expander
+	GPIO_PRINTF("	Initiating interrupt for GPIO_PIN_I2C_EXPANDER_INTERRUPT\n");
+	init_gpio_interrupt(GPIO_PIN_I2C_EXPANDER_INTERRUPT, &gpio_fd_interrupt_expander_gpio);
 
 	// Init I2C expander
 	pcal6416a_init();
+
+#ifdef ENABLE_AXP209_INTERRUPTS
+	// Init GPIO interrupt from AXP209
+	GPIO_PRINTF("	Initiating interrupt for GPIO_PIN_AXP209_INTERRUPT\n");
+	init_gpio_interrupt(GPIO_PIN_AXP209_INTERRUPT, &gpio_fd_interrupt_axp209);
+
+	// Init AXP209
+	axp209_init();
+#endif //ENABLE_AXP209_INTERRUPTS
 
 	return 0;
 }
@@ -255,10 +272,21 @@ int init_mapping_gpios(int * gpio_pins_to_declare, int nb_gpios_to_declare,
 int deinit_mapping_gpios(void)
 {
 	// DeInit GPIO interrupt from I2C expander
-	deinit_gpio_interrupt();
+	GPIO_PRINTF("	DeInitiating interrupt for GPIO_PIN_I2C_EXPANDER_INTERRUPT\n");
+	deinit_gpio_interrupt(gpio_fd_interrupt_expander_gpio);
 
 	// DeInit I2C expander
 	pcal6416a_deinit();
+
+#ifdef ENABLE_AXP209_INTERRUPTS
+	// DeInit GPIO interrupt from AXP209
+	GPIO_PRINTF("	DeInitiating interrupt for GPIO_PIN_AXP209_INTERRUPT\n");
+	deinit_gpio_interrupt(gpio_fd_interrupt_axp209);
+
+	// DeInit AXP209
+	axp209_deinit();
+#endif //ENABLE_AXP209_INTERRUPTS
+
 	return 0;
 }
 
@@ -267,12 +295,11 @@ int deinit_mapping_gpios(void)
 int listen_gpios_interrupts(void)
 {
 	// Variables
-	char buffer[2];
-	int idx_gpio, value;
+	//char buffer[2];
+	//int value;
+	int idx_gpio;
 	bool previous_mask_gpio_value[nb_mapped_gpios];
 	bool mask_gpio_current_interrupts[nb_mapped_gpios];
-	uint16_t val_i2c_mask_interrupted, val_i2c_mask_active;
-	bool interrupt_found = false;
 
 	// Back up master 
 	fd_set dup = fds;
@@ -282,29 +309,31 @@ int listen_gpios_interrupts(void)
 	memset(mask_gpio_value, false, nb_mapped_gpios*sizeof(bool));
 	memset(mask_gpio_current_interrupts, false, nb_mapped_gpios*sizeof(bool));
 
-	// Waiting for interrupt or timeout, Note the max_fd+1
+	// If interrupt not already found, waiting for interrupt or timeout, Note the max_fd+1
+	if(!interrupt_i2c_expander_found && !interrupt_axp209_found){
 #ifdef TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP
-	struct timeval timeout = {TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP, 0};
-	int nb_interrupts = select(max_fd+1, NULL, NULL, &dup, &timeout);
+		struct timeval timeout = {TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP, 0};
+		int nb_interrupts = select(max_fd+1, NULL, NULL, &dup, &timeout);
 #else
-	int nb_interrupts = select(max_fd+1, NULL, NULL, &dup, NULL);
+		int nb_interrupts = select(max_fd+1, NULL, NULL, &dup, NULL);
 #endif //TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP
-	if(!nb_interrupts){
-		// Timeout case 
-		GPIO_PRINTF("	Timeout, forcing sanity check\n");
-		// Timeout forcing a "Found interrupt" event for sanity check
-		interrupt_found = true;
-	}
-	else if ( nb_interrupts < 0) {
-		perror("select");
-		return -1;
+		if(!nb_interrupts){
+			// Timeout case 
+			GPIO_PRINTF("	Timeout, forcing sanity check\n");
+			// Timeout forcing a "Found interrupt" event for sanity check
+			interrupt_i2c_expander_found = true;
+		}
+		else if ( nb_interrupts < 0) {
+			perror("select");
+			return -1;
+		}
 	}
 
-	// Check if interrupt from I2C expander
+	// Check if interrupt from I2C expander or AXP209
 	// Check which cur_fd is available for read 
 	for (int cur_fd = 0; cur_fd <= max_fd; cur_fd++) {
 		if (FD_ISSET(cur_fd, &dup)) {
-			// Revenir au debut du fichier (lectures successives).
+			/*// Rewind file
 			lseek(cur_fd, 0, SEEK_SET);
 			
 			// Read current gpio value
@@ -313,19 +342,54 @@ int listen_gpios_interrupts(void)
 				break;
 			}
 
-			// Effacer le retour-chariot.
+			// remove end of line char
 			buffer[1] = '\0';
-			value = 1-atoi(buffer);
+			value = 1-atoi(buffer);*/
 
 			// Found interrupt
-			interrupt_found = true;
+			if(cur_fd == gpio_fd_interrupt_expander_gpio){
+				interrupt_i2c_expander_found = true;
+			}
+			else if(cur_fd == gpio_fd_interrupt_axp209){
+				interrupt_axp209_found = true;
+			}
 		}
 	}
 
-	if(interrupt_found){
+
+#ifdef ENABLE_AXP209_INTERRUPTS
+	if(interrupt_axp209_found){
+		GPIO_PRINTF("	Found interrupt AXP209\n");
+		int val_int_bank_3 = axp209_read_interrupt_bank_3();
+		if(val_int_bank_3 < 0){
+			GPIO_PRINTF("	Could not read AXP209 with I2C\n");
+			return 0;
+		}
+		interrupt_axp209_found = false;
+
+		if(val_int_bank_3 & AXP209_INTERRUPT_PEK_SHORT_PRESS){
+			GPIO_PRINTF("	AXP209 short PEK key press detected\n");
+		}
+		if(val_int_bank_3 & AXP209_INTERRUPT_PEK_LONG_PRESS){
+			GPIO_PRINTF("	AXP209 long PEK key press detected\n");
+		}
+	}
+#endif //ENABLE_AXP209_INTERRUPTS
+
+	if(interrupt_i2c_expander_found){
 		// Read I2C GPIO masks: 
-		val_i2c_mask_interrupted = pcal6416a_read_mask_interrupts();
-		val_i2c_mask_active = pcal6416a_read_mask_active_GPIOs();
+		int val_i2c_mask_interrupted = pcal6416a_read_mask_interrupts();
+		if(val_i2c_mask_interrupted < 0){
+			GPIO_PRINTF("	Could not read pcal6416a_read_mask_interrupts\n");
+			return 0;
+		}
+		int val_i2c_mask_active = pcal6416a_read_mask_active_GPIOs();
+		if(val_i2c_mask_active < 0){
+			GPIO_PRINTF("	Could not read pcal6416a_read_mask_active_GPIOs\n");
+			return 0;
+		}
+		interrupt_i2c_expander_found = false;
+
 
 		// Find GPIO idx correspondance
 		for (idx_gpio=0; idx_gpio<nb_mapped_gpios; idx_gpio++){

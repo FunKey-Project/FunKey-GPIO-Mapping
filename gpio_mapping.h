@@ -11,8 +11,8 @@
 /****************************************************************
 * Defines
 ****************************************************************/
-#define GPIO_PIN_I2C_EXPANDER_INTERRUPT	35			//PB3
-//#define GPIO_PIN_I2C_EXPANDER_INTERRUPT	38			//PB6
+#define GPIO_PIN_I2C_EXPANDER_INTERRUPT		35			//PB3
+#define GPIO_PIN_AXP209_INTERRUPT			37			//PB5
 
 /****************************************************************
 * Public functions

@@ -29,8 +29,8 @@
 /****************************************************************
  * Static variables
  ****************************************************************/
-int fd_i2c_expander;
-char i2c0_sysfs_filename[] = "/dev/i2c-0";
+static int fd_i2c_expander;
+static char i2c0_sysfs_filename[] = "/dev/i2c-0";
 
 /****************************************************************
  * Static functions
@@ -67,15 +67,23 @@ bool pcal6416a_deinit(void) {
  	return true;
 }
 
-uint16_t pcal6416a_read_mask_interrupts(void){
-	uint16_t val = i2c_smbus_read_word_data ( fd_i2c_expander , PCAL6416A_INT_STATUS );
+int pcal6416a_read_mask_interrupts(void){
+	int val_int = i2c_smbus_read_word_data ( fd_i2c_expander , PCAL6416A_INT_STATUS );
+    if(val_int < 0){
+        return val_int;
+    }
+    uint16_t val = val_int & 0xFFFF;
  	DEBUG_PRINTF("READ PCAL6416A_INT_STATUS :  0x%04X\n",val);
- 	return val;
+ 	return (int) val;
 }
 
-uint16_t pcal6416a_read_mask_active_GPIOs(void){
-	uint16_t val = i2c_smbus_read_word_data ( fd_i2c_expander , PCAL6416A_INPUT );
+int pcal6416a_read_mask_active_GPIOs(void){
+	int val_int = i2c_smbus_read_word_data ( fd_i2c_expander , PCAL6416A_INPUT );
+    if(val_int < 0){
+        return val_int;
+    }
+    uint16_t val = val_int & 0xFFFF;
 	val = 0xFFFF-val;
  	DEBUG_PRINTF("READ PCAL6416A_INPUT (active GPIOs) :  0x%04X\n",val);
- 	return val;
+ 	return (int) val;
 }

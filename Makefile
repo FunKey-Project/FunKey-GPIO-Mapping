@@ -4,7 +4,7 @@ TOOLS_CFLAGS	:= -Wall -std=c99 -D _DEFAULT_SOURCE
 #
 all:	funkey_gpio_management 
 
-funkey_gpio_management:  funkey_gpio_management.o gpio-utils.o uinput.o gpio_mapping.o read_conf_file.o keydefs.o driver_pcal6416a.o smbus.o
+funkey_gpio_management:  funkey_gpio_management.o gpio-utils.o uinput.o gpio_mapping.o read_conf_file.o keydefs.o driver_pcal6416a.o driver_axp209.o smbus.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 
