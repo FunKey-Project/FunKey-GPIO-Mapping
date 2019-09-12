@@ -22,7 +22,7 @@
         return(EXIT_FAILURE); \
     } while(0)
 
-#define DEBUG_GPIO_PRINTF 			(1)
+#define DEBUG_GPIO_PRINTF 			(0)
 #define ERROR_GPIO_PRINTF 			(1)
 
 #if (DEBUG_GPIO_PRINTF)
@@ -42,7 +42,10 @@
 #define TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP	2
 
 // This is for debug purposes on cards or eval boards that do not have the AXP209
-//#define ENABLE_AXP209_INTERRUPTS
+#define ENABLE_AXP209_INTERRUPTS
+
+#define KEY_IDX_MAPPED_FOR_SHORT_PEK_PRESS	16 	//KEY_Q
+#define KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS	28 	//KEY_ENTER
 
 
 /****************************************************************
@@ -190,9 +193,6 @@ static int init_gpio_interrupt(int pin_nb, int *fd_saved)
   	// Variables
   	GPIO_PRINTF("Initializing Interrupt on GPIO pin: %d\n", pin_nb);
 	  
-	// Init fds fd_set 
-	FD_ZERO(&fds);
-	  
 	//Initializing I2C interrupt GPIO
 	gpio_export(pin_nb); 
 	//gpio_set_edge(cur_pin_nb, "both");  // Can be rising, falling or both
@@ -248,6 +248,9 @@ int init_mapping_gpios(int * gpio_pins_to_declare, int nb_gpios_to_declare,
 		// Next node in chained list
 		current = current->next_mapped_gpio;
 	} while(current != NULL);
+	
+	// Init fds fd_set 
+	FD_ZERO(&fds);
 
 	// Init GPIO interrupt from I2C GPIO expander
 	GPIO_PRINTF("	Initiating interrupt for GPIO_PIN_I2C_EXPANDER_INTERRUPT\n");
@@ -295,9 +298,10 @@ int deinit_mapping_gpios(void)
 int listen_gpios_interrupts(void)
 {
 	// Variables
-	//char buffer[2];
-	//int value;
+	char buffer[2];
+	int value;
 	int idx_gpio;
+	int nb_interrupts;
 	bool previous_mask_gpio_value[nb_mapped_gpios];
 	bool mask_gpio_current_interrupts[nb_mapped_gpios];
 
@@ -313,9 +317,9 @@ int listen_gpios_interrupts(void)
 	if(!interrupt_i2c_expander_found && !interrupt_axp209_found){
 #ifdef TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP
 		struct timeval timeout = {TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP, 0};
-		int nb_interrupts = select(max_fd+1, NULL, NULL, &dup, &timeout);
+		nb_interrupts = select(max_fd+1, NULL, NULL, &dup, &timeout);
 #else
-		int nb_interrupts = select(max_fd+1, NULL, NULL, &dup, NULL);
+		nb_interrupts = select(max_fd+1, NULL, NULL, &dup, NULL);
 #endif //TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP
 		if(!nb_interrupts){
 			// Timeout case 
@@ -329,30 +333,32 @@ int listen_gpios_interrupts(void)
 		}
 	}
 
-	// Check if interrupt from I2C expander or AXP209
-	// Check which cur_fd is available for read 
-	for (int cur_fd = 0; cur_fd <= max_fd; cur_fd++) {
-		if (FD_ISSET(cur_fd, &dup)) {
-			/*// Rewind file
-			lseek(cur_fd, 0, SEEK_SET);
+	if(nb_interrupts){
+		// Check if interrupt from I2C expander or AXP209
+		// Check which cur_fd is available for read 
+		for (int cur_fd = 0; cur_fd <= max_fd; cur_fd++) {
+			if (FD_ISSET(cur_fd, &dup)) {
+				// Rewind file
+				lseek(cur_fd, 0, SEEK_SET);
 			
-			// Read current gpio value
-			if (read(cur_fd, & buffer, 2) != 2) {
-				perror("read");
-				break;
-			}
+				// Read current gpio value
+				if (read(cur_fd, & buffer, 2) != 2) {
+					perror("read");
+					break;
+				}
+	
+				// remove end of line char
+				buffer[1] = '\0';
+				value = 1-atoi(buffer);
 
-			// remove end of line char
-			buffer[1] = '\0';
-			value = 1-atoi(buffer);*/
-
-			// Found interrupt
-			if(cur_fd == gpio_fd_interrupt_expander_gpio){
-				interrupt_i2c_expander_found = true;
-			}
-			else if(cur_fd == gpio_fd_interrupt_axp209){
-				interrupt_axp209_found = true;
-			}
+				// Found interrupt
+				if(cur_fd == gpio_fd_interrupt_expander_gpio){
+					interrupt_i2c_expander_found = true;
+				}
+				else if(cur_fd == gpio_fd_interrupt_axp209){
+					interrupt_axp209_found = true;
+				}
+			}	
 		}
 	}
 
@@ -369,9 +375,12 @@ int listen_gpios_interrupts(void)
 
 		if(val_int_bank_3 & AXP209_INTERRUPT_PEK_SHORT_PRESS){
 			GPIO_PRINTF("	AXP209 short PEK key press detected\n");
+			sendKeyAndStopKey(KEY_IDX_MAPPED_FOR_SHORT_PEK_PRESS);
+
 		}
 		if(val_int_bank_3 & AXP209_INTERRUPT_PEK_LONG_PRESS){
 			GPIO_PRINTF("	AXP209 long PEK key press detected\n");
+			sendKeyAndStopKey(KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS);
 		}
 	}
 #endif //ENABLE_AXP209_INTERRUPTS
@@ -440,3 +449,4 @@ int listen_gpios_interrupts(void)
 
 	return 0;
 }
+
