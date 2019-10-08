@@ -52,10 +52,20 @@ bool pcal6416a_init(void) {
         return false;
     }
 
-    uint16_t val_enable_pullups = 0xffff;
- 	i2c_smbus_write_word_data ( fd_i2c_expander , PCAL6416A_EN_PULLUPDOWN , val_enable_pullups );
+    uint16_t val_enable_direction = 0xffff;
+    i2c_smbus_write_word_data ( fd_i2c_expander , PCAL6416A_CONFIG , val_enable_direction );
 
-    uint16_t val_enable_interrupts = 0x0000;
+    uint16_t val_enable_latch = 0x0000;
+    i2c_smbus_write_word_data ( fd_i2c_expander , PCAL6416A_INPUT_LATCH , val_enable_latch );
+
+    uint16_t val_enable_pullups = 0xffff;
+    i2c_smbus_write_word_data ( fd_i2c_expander , PCAL6416A_EN_PULLUPDOWN , val_enable_pullups );
+
+    uint16_t val_sel_pullups = 0xffff;
+    i2c_smbus_write_word_data ( fd_i2c_expander , PCAL6416A_SEL_PULLUPDOWN , val_sel_pullups );
+
+    //uint16_t val_enable_interrupts = 0x0000;
+    uint16_t val_enable_interrupts = 0x0320;
  	i2c_smbus_write_word_data ( fd_i2c_expander , PCAL6416A_INT_MASK , val_enable_interrupts );
 
  	return true;
