@@ -189,14 +189,15 @@ static void find_and_call_mapping_function(int idx_gpio_interrupted,
 }
 
 /*****  Init GPIO Interrupt i2c expander fd  *****/
-static int init_gpio_interrupt(int pin_nb, int *fd_saved)
+static int init_gpio_interrupt(int pin_nb, int *fd_saved, const char *edge)
 {
   	// Variables
   	GPIO_PRINTF("Initializing Interrupt on GPIO pin: %d\n", pin_nb);
 	  
 	//Initializing I2C interrupt GPIO
 	gpio_export(pin_nb); 
-	gpio_set_edge(pin_nb, "both");  // Can be rising, falling or both
+	gpio_set_edge(pin_nb, edge);  // Can be rising, falling or both
+	//gpio_set_edge(pin_nb, "both");  // Can be rising, falling or both
 	//gpio_set_edge(pin_nb, "falling");  // Can be rising, falling or both
 	*fd_saved = gpio_fd_open(pin_nb, O_RDONLY);
   	GPIO_PRINTF("fd is: %d\n", *fd_saved);
@@ -255,7 +256,7 @@ int init_mapping_gpios(int * gpio_pins_to_declare, int nb_gpios_to_declare,
 
 	// Init GPIO interrupt from I2C GPIO expander
 	GPIO_PRINTF("	Initiating interrupt for GPIO_PIN_I2C_EXPANDER_INTERRUPT\n");
-	init_gpio_interrupt(GPIO_PIN_I2C_EXPANDER_INTERRUPT, &gpio_fd_interrupt_expander_gpio);
+	init_gpio_interrupt(GPIO_PIN_I2C_EXPANDER_INTERRUPT, &gpio_fd_interrupt_expander_gpio, "both"); // Can be rising, falling or both
 
 	// Init I2C expander
 	pcal6416a_init();
@@ -263,7 +264,7 @@ int init_mapping_gpios(int * gpio_pins_to_declare, int nb_gpios_to_declare,
 #ifdef ENABLE_AXP209_INTERRUPTS
 	// Init GPIO interrupt from AXP209
 	GPIO_PRINTF("	Initiating interrupt for GPIO_PIN_AXP209_INTERRUPT\n");
-	init_gpio_interrupt(GPIO_PIN_AXP209_INTERRUPT, &gpio_fd_interrupt_axp209);
+	init_gpio_interrupt(GPIO_PIN_AXP209_INTERRUPT, &gpio_fd_interrupt_axp209, "falling");
 
 	// Init AXP209
 	axp209_init();

@@ -56,19 +56,23 @@ bool axp209_init(void) {
     int err;
     err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_INTERRUPT_BANK_1_ENABLE, 0x00);
     if(err < 0){
-        printf("ERROR initializing interrupts for AXP209\n");
+        printf("ERROR initializing interrupts 1 for AXP209\n");
     }
     err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_INTERRUPT_BANK_2_ENABLE, 0x00);
     if(err < 0){
-        printf("ERROR initializing interrupts for AXP209\n");
+        printf("ERROR initializing interrupts 2 for AXP209\n");
+    }
+    err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_INTERRUPT_BANK_3_ENABLE, 0x03);
+    if(err < 0){
+        printf("ERROR initializing interrupts 3 for AXP209\n");
     }
     err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_INTERRUPT_BANK_4_ENABLE, 0x00);
     if(err < 0){
-        printf("ERROR initializing interrupts for AXP209\n");
+        printf("ERROR initializing interrupts 4 for AXP209\n");
     }
     err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_INTERRUPT_BANK_5_ENABLE, 0x00);
     if(err < 0){
-        printf("ERROR initializing interrupts for AXP209\n");
+        printf("ERROR initializing interrupts 5 for AXP209\n");
     }
 
  	return true;
