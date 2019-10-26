@@ -47,8 +47,13 @@ bool pcal6416a_init(void) {
     }
 
     if (ioctl(fd_i2c_expander,I2C_SLAVE,PCAL6416A_I2C_ADDR) < 0) {
-        printf("Failed to acquire bus access and/or talk to slave.\n");
+        printf("In pcal6416a_init - Failed to acquire bus access and/or talk to slave.\n");
         // ERROR HANDLING; you can check errno to see what went wrong 
+        if (ioctl(fd_i2c_expander, I2C_SLAVE_FORCE, PCAL6416A_I2C_ADDR) < 0) {
+            printf("In pcal6416a_init - Failed to acquire FORCED bus access and/or talk to slave.\n");
+            // ERROR HANDLING; you can check errno to see what went wrong 
+            return false;
+        }
         return false;
     }
 

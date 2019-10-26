@@ -49,7 +49,11 @@ bool axp209_init(void) {
     if (ioctl(fd_axp209, I2C_SLAVE, AXP209_I2C_ADDR) < 0) {
         printf("In axp209_init - Failed to acquire bus access and/or talk to slave.\n");
         // ERROR HANDLING; you can check errno to see what went wrong 
-        return false;
+        if (ioctl(fd_axp209, I2C_SLAVE_FORCE, AXP209_I2C_ADDR) < 0) {
+            printf("In axp209_init - Failed to acquire FORCED bus access and/or talk to slave.\n");
+            // ERROR HANDLING; you can check errno to see what went wrong 
+            return false;
+        }
     }	
 
     // Enable only chosen interrupts (PEK short and long presses)
