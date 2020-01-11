@@ -35,18 +35,11 @@
 //#include "config.h"
 //include "daemon.h"
 #include "uinput.h"
+#include <time.h>
 
-static int sendRel(int dx, int dy);
-static int sendSync(void);
-
-static struct input_event     uidev_ev;
-static int uidev_fd;
-/*static keyinfo_s lastkey;*/
-
-#define die(str, args...) do { \
-        perror(str); \
-        return(EXIT_FAILURE); \
-    } while(0)
+/****************************************************************
+ * Defines
+ ****************************************************************/
 
 #define DEBUG_UINPUT_PRINTF (0)
 #if DEBUG_UINPUT_PRINTF
@@ -54,7 +47,31 @@ static int uidev_fd;
 #else
   #define UINPUT_PRINTF(...)
 #endif
+    
+#define SLEEP_TIME_SEND_STOP_KEY_US   20*1000
 
+#define die(str, args...) do { \
+        perror(str); \
+        return(EXIT_FAILURE); \
+    } while(0)
+
+
+/****************************************************************
+ * Static functions declaration
+ ****************************************************************/
+static int sendRel(int dx, int dy);
+static int sendSync(void);
+
+/****************************************************************
+ * Static variables
+ ****************************************************************/
+static struct input_event     uidev_ev;
+static int uidev_fd;
+/*static keyinfo_s lastkey;*/
+
+/****************************************************************
+ * Functions Implementation
+ ****************************************************************/
 int init_uinput(void)
 {
   int fd;
@@ -187,6 +204,7 @@ int sendKey(int key, int value)
 int sendKeyAndStopKey(int key)
 {
   sendKey(key, 1);
+  usleep(SLEEP_TIME_SEND_STOP_KEY_US);
   sendKey(key, 0);
 
   return 0;

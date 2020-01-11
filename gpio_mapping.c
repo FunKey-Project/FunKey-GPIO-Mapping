@@ -39,10 +39,10 @@
 
 // This define forces to perform a gpio sanity check after a timeout. 
 // If not declared, there will be no timeout and no periodical sanity check of GPIO expander values
-#define TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP	1
-//#define TIMEOUT_MICROSEC_SANITY_CHECK_GPIO_EXP	(500*1000)
+//#define TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP	1
+#define TIMEOUT_MICROSEC_SANITY_CHECK_GPIO_EXP	(30*1000)
 
-// This is for debug purposes on cards or eval boards that do not have the AXP209
+// Comment this for debug purposes on cards or eval boards that do not have the AXP209
 #define ENABLE_AXP209_INTERRUPTS
 
 #define KEY_IDX_MAPPED_FOR_SHORT_PEK_PRESS	16 	//KEY_Q
@@ -62,6 +62,8 @@ static fd_set fds;
 static bool * mask_gpio_value;
 static bool interrupt_i2c_expander_found = false;
 static bool interrupt_axp209_found = false;
+static bool mapping_PEK_short_press_activated = false;
+static bool mapping_PEK_long_press_activated = false;
 
 
 /****************************************************************
@@ -330,8 +332,10 @@ int listen_gpios_interrupts(void)
 		if(!nb_interrupts){
 			// Timeout case 
 			GPIO_PRINTF("	Timeout, forcing sanity check\n");
+			
 			// Timeout forcing a "Found interrupt" event for sanity check
 			interrupt_i2c_expander_found = true;
+			interrupt_axp209_found = true;
 		}
 		else if ( nb_interrupts < 0) {
 			perror("select");
@@ -385,11 +389,15 @@ int listen_gpios_interrupts(void)
 		if(val_int_bank_3 & AXP209_INTERRUPT_PEK_SHORT_PRESS){
 			GPIO_PRINTF("	AXP209 short PEK key press detected\n");
 			sendKeyAndStopKey(KEY_IDX_MAPPED_FOR_SHORT_PEK_PRESS);
+			/*sendKey(KEY_IDX_MAPPED_FOR_SHORT_PEK_PRESS, !mapping_PEK_short_press_activated);
+			mapping_PEK_short_press_activated = !mapping_PEK_short_press_activated;*/
 
 		}
 		if(val_int_bank_3 & AXP209_INTERRUPT_PEK_LONG_PRESS){
 			GPIO_PRINTF("	AXP209 long PEK key press detected\n");
 			sendKeyAndStopKey(KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS);
+			/*sendKey(KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS, !mapping_PEK_long_press_activated);
+			mapping_PEK_long_press_activated = !mapping_PEK_long_press_activated;*/
 		}
 	}
 #endif //ENABLE_AXP209_INTERRUPTS
