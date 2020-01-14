@@ -23,12 +23,19 @@
     } while(0)
 
 #define DEBUG_GPIO_PRINTF 			(0)
+#define DEBUG_PERIODIC_CHECK_PRINTF (0)
 #define ERROR_GPIO_PRINTF 			(1)
 
 #if (DEBUG_GPIO_PRINTF)
 #define GPIO_PRINTF(...) printf(__VA_ARGS__);
 #else
 #define GPIO_PRINTF(...)
+#endif
+
+#if (DEBUG_PERIODIC_CHECK_PRINTF)
+#define PERIODIC_CHECK_PRINTF(...) printf(__VA_ARGS__);
+#else
+#define PERIODIC_CHECK_PRINTF(...)
 #endif
 
 #if (ERROR_GPIO_PRINTF)
@@ -53,7 +60,8 @@
  * Static variables
  ****************************************************************/
 static int nb_mapped_gpios;
-static int * gpio_pins;
+static int * gpio_pins_idx_declared;
+static bool * gpios_pins_active_high;
 STRUCT_MAPPED_GPIO * chained_list_mapping;
 static int max_fd = 0;
 static int gpio_fd_interrupt_expander_gpio;
@@ -62,8 +70,6 @@ static fd_set fds;
 static bool * mask_gpio_value;
 static bool interrupt_i2c_expander_found = false;
 static bool interrupt_axp209_found = false;
-static bool mapping_PEK_short_press_activated = false;
-static bool mapping_PEK_long_press_activated = false;
 
 
 /****************************************************************
@@ -136,7 +142,7 @@ static void find_and_call_mapping_function(int idx_gpio_interrupted,
 
 		//GPIO_PRINTF("	Mapping searching for idx_gpio_interrupted: %d, and %s: \n", idx_gpio_interrupted, activation?"activation":"deactivation")
 		for (i=0; i < current->nb_simultaneous_pins; i++){
-			//GPIO_PRINTF("	Pin in mapping: %d, pin_idx=%d\n", gpio_pins[current->pins_idx[i]], current->pins_idx[i]);
+			//GPIO_PRINTF("	Pin in mapping: %d, pin_idx=%d\n", gpio_pins_idx_declared[current->pins_idx[i]], current->pins_idx[i]);
 			// Find if current mapping contains interrupted pin
 			if (current->pins_idx[i] == idx_gpio_interrupted){
 				gpio_found_pin_in_mapping = true;
@@ -156,7 +162,7 @@ static void find_and_call_mapping_function(int idx_gpio_interrupted,
 				// if real mapping already found => need to deactivate previously activated ones
 				if(mapping_found && current->activated){
 					GPIO_PRINTF("	Mapping Deactivation because real one already found: GPIO %d found in following activated mapping: \n", 
-						gpio_pins[idx_gpio_interrupted]);
+						gpio_pins_idx_declared[idx_gpio_interrupted]);
 					print_chained_list_node(current);
 					apply_mapping_desactivation(current);
 				}
@@ -167,7 +173,7 @@ static void find_and_call_mapping_function(int idx_gpio_interrupted,
 					}
 					// Print information and activate mapping
 					GPIO_PRINTF("	Mapping Activation: GPIO %d found in following deactivated mapping: \n", 
-						gpio_pins[idx_gpio_interrupted]);
+						gpio_pins_idx_declared[idx_gpio_interrupted]);
 					print_chained_list_node(current);
 					apply_mapping_activation(current);
 				}
@@ -175,7 +181,7 @@ static void find_and_call_mapping_function(int idx_gpio_interrupted,
 			else{ // Treating deactivation cases
 				if(current->activated){
 					GPIO_PRINTF("	Mapping Desactivation: GPIO %d found in following activated mapping: \n", 
-							gpio_pins[idx_gpio_interrupted]);
+							gpio_pins_idx_declared[idx_gpio_interrupted]);
 					print_chained_list_node(current);
 					apply_mapping_desactivation(current);
 				}
@@ -229,7 +235,9 @@ static int deinit_gpio_interrupt(int fd_saved)
  * Public functions
  ****************************************************************/
 /*****  Init I2C expander pin mappings *****/
-int init_mapping_gpios(int * gpio_pins_to_declare, int nb_gpios_to_declare, 
+int init_mapping_gpios(int * gpio_pins_to_declare, 
+	bool * gpios_pins_active_high_declared, 
+	int nb_gpios_to_declare, 
 	STRUCT_MAPPED_GPIO * chained_list_mapping_gpios)
 {
   	// Variables
@@ -238,7 +246,8 @@ int init_mapping_gpios(int * gpio_pins_to_declare, int nb_gpios_to_declare,
 
 	// Store arguments
 	nb_mapped_gpios = nb_gpios_to_declare;
-	gpio_pins = gpio_pins_to_declare;
+	gpio_pins_idx_declared = gpio_pins_to_declare;
+	gpios_pins_active_high = gpios_pins_active_high_declared;
 	chained_list_mapping = chained_list_mapping_gpios;
   
 	// Init values
@@ -308,6 +317,7 @@ int listen_gpios_interrupts(void)
 	int nb_interrupts = 0;
 	bool previous_mask_gpio_value[nb_mapped_gpios];
 	bool mask_gpio_current_interrupts[nb_mapped_gpios];
+	bool forced_interrupt = false;
 
 	// Back up master 
 	fd_set dup = fds;
@@ -331,11 +341,12 @@ int listen_gpios_interrupts(void)
 #endif //TIMEOUT_SEC_SANITY_CHECK_GPIO_EXP
 		if(!nb_interrupts){
 			// Timeout case 
-			GPIO_PRINTF("	Timeout, forcing sanity check\n");
+			PERIODIC_CHECK_PRINTF("	Timeout, forcing sanity check\n");
 			
 			// Timeout forcing a "Found interrupt" event for sanity check
 			interrupt_i2c_expander_found = true;
 			interrupt_axp209_found = true;
+			forced_interrupt = true;
 		}
 		else if ( nb_interrupts < 0) {
 			perror("select");
@@ -378,7 +389,12 @@ int listen_gpios_interrupts(void)
 
 #ifdef ENABLE_AXP209_INTERRUPTS
 	if(interrupt_axp209_found){
-		GPIO_PRINTF("	Processing interrupt AXP209\n");
+		if(forced_interrupt){
+			PERIODIC_CHECK_PRINTF("	Processing forced interrupt AXP209\n");
+		}
+		else{
+			GPIO_PRINTF("	Processing real interrupt AXP209\n");
+		}
 		int val_int_bank_3 = axp209_read_interrupt_bank_3();
 		if(val_int_bank_3 < 0){
 			GPIO_PRINTF("	Could not read AXP209 with I2C\n");
@@ -389,21 +405,23 @@ int listen_gpios_interrupts(void)
 		if(val_int_bank_3 & AXP209_INTERRUPT_PEK_SHORT_PRESS){
 			GPIO_PRINTF("	AXP209 short PEK key press detected\n");
 			sendKeyAndStopKey(KEY_IDX_MAPPED_FOR_SHORT_PEK_PRESS);
-			/*sendKey(KEY_IDX_MAPPED_FOR_SHORT_PEK_PRESS, !mapping_PEK_short_press_activated);
-			mapping_PEK_short_press_activated = !mapping_PEK_short_press_activated;*/
 
 		}
 		if(val_int_bank_3 & AXP209_INTERRUPT_PEK_LONG_PRESS){
 			GPIO_PRINTF("	AXP209 long PEK key press detected\n");
 			sendKeyAndStopKey(KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS);
-			/*sendKey(KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS, !mapping_PEK_long_press_activated);
-			mapping_PEK_long_press_activated = !mapping_PEK_long_press_activated;*/
 		}
 	}
 #endif //ENABLE_AXP209_INTERRUPTS
 
 	if(interrupt_i2c_expander_found){
-		GPIO_PRINTF("	Processing interrupt PCAL6416AHF\n");
+		if(forced_interrupt){
+			PERIODIC_CHECK_PRINTF("	Processing forced interrupt PCAL6416AHF\n");
+		}
+		else{
+			GPIO_PRINTF("	Processing real interrupt PCAL6416AHF\n");
+		}
+
 		// Read I2C GPIO masks: 
 		int val_i2c_mask_interrupted = pcal6416a_read_mask_interrupts();
 		if(val_i2c_mask_interrupted < 0){
@@ -420,17 +438,17 @@ int listen_gpios_interrupts(void)
 
 		// Find GPIO idx correspondance
 		for (idx_gpio=0; idx_gpio<nb_mapped_gpios; idx_gpio++){
-			uint16_t tmp_mask_gpio = (1 << gpio_pins[idx_gpio]);
+			uint16_t tmp_mask_gpio = (1 << gpio_pins_idx_declared[idx_gpio]);
 
 			// Found GPIO idx in active GPIOs
 			if(val_i2c_mask_active & tmp_mask_gpio){
 				mask_gpio_value[idx_gpio] = true;
 			}
-
+ 
 			// Found GPIO idx in interrupt mask
 			if(val_i2c_mask_interrupted & tmp_mask_gpio){
 				// Print information
-				GPIO_PRINTF("	--> Interrupt GPIO: %d, idx_pin: %d\n", gpio_pins[idx_gpio], idx_gpio);
+				GPIO_PRINTF("	--> Interrupt GPIO: %d, idx_pin: %d\n", gpio_pins_idx_declared[idx_gpio], idx_gpio);
 				mask_gpio_current_interrupts[idx_gpio] = true;
 			}
 
@@ -438,7 +456,8 @@ int listen_gpios_interrupts(void)
 			if( !mask_gpio_current_interrupts[idx_gpio] && 
 				(mask_gpio_value[idx_gpio] != previous_mask_gpio_value[idx_gpio]) ){
 				// Print information
-				GPIO_PRINTF("	--> No Interrupt (missed) but value has changed on GPIO: %d, idx_pin: %d\n", gpio_pins[idx_gpio], idx_gpio);
+				GPIO_PRINTF("	--> No Interrupt (missed) but value has changed on GPIO: %d, idx_pin: %d\n", 
+					gpio_pins_idx_declared[idx_gpio], idx_gpio);
 				mask_gpio_current_interrupts[idx_gpio] = true;
 			}
 		}
@@ -448,7 +467,8 @@ int listen_gpios_interrupts(void)
 		for (idx_gpio=0; idx_gpio<nb_mapped_gpios; idx_gpio++){
 			if(!mask_gpio_current_interrupts[idx_gpio]) continue;
 
-			if (mask_gpio_value[idx_gpio]){
+			if ( (mask_gpio_value[idx_gpio] && gpios_pins_active_high[idx_gpio]) ||
+				(!mask_gpio_value[idx_gpio] && !gpios_pins_active_high[idx_gpio]) ){
 				find_and_call_mapping_function(idx_gpio,
 										chained_list_mapping, 
 										mask_gpio_current_interrupts,

@@ -40,14 +40,18 @@ static char i2c0_sysfs_filename[] = "/dev/i2c-0";
  * Public functions
  ****************************************************************/
 bool axp209_init(void) {
+    int err;
+
+    /* Open i2c file interface */
     if ((fd_axp209 = open(i2c0_sysfs_filename,O_RDWR)) < 0) {
         printf("In axp209_init - Failed to open the I2C bus %s", i2c0_sysfs_filename);
         // ERROR HANDLING; you can check errno to see what went wrong 
         return false;
     }
 
+    /* Acquire AXP209 bus */
     if (ioctl(fd_axp209, I2C_SLAVE, AXP209_I2C_ADDR) < 0) {
-        printf("In axp209_init - Failed to acquire bus access and/or talk to slave.\n");
+        printf("In axp209_init - Failed to acquire bus access and/or talk to slave, trying to force it\n");
         // ERROR HANDLING; you can check errno to see what went wrong 
         if (ioctl(fd_axp209, I2C_SLAVE_FORCE, AXP209_I2C_ADDR) < 0) {
             printf("In axp209_init - Failed to acquire FORCED bus access and/or talk to slave.\n");
@@ -56,8 +60,13 @@ bool axp209_init(void) {
         }
     }	
 
-    // Enable only chosen interrupts (PEK short and long presses)
-    int err;
+    /* Set N_OE Shutdown delay to 3S*/
+    err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_REG_32H, 0x43);
+    if(err < 0){
+        printf("ERROR Setting AXP209 N_OE Shutdown delay to 3S\n");
+    }
+
+    /* Enable only chosen interrupts (PEK short and long presses)*/
     /*err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_INTERRUPT_BANK_1_ENABLE, 0x00);
     if(err < 0){
         printf("ERROR initializing interrupts 1 for AXP209\n");

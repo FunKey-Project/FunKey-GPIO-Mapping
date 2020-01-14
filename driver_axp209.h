@@ -14,6 +14,7 @@
 #define AXP209_I2C_ADDR			0x34
 
 // Chip registers adresses
+#define AXP209_REG_32H						0x32 
 #define AXP209_INTERRUPT_BANK_1_ENABLE		0x40 
 #define AXP209_INTERRUPT_BANK_1_STATUS		0x48 
 #define AXP209_INTERRUPT_BANK_2_ENABLE		0x41

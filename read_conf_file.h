@@ -66,7 +66,7 @@ typedef struct gpio_mapping_s{
 * Public functions
 ****************************************************************/
 void get_mapping_from_conf_file(STRUCT_MAPPED_GPIO ** chained_list_mapping, 
-	int* nb_valid_gpios, int ** valid_gpio_pins);
+	int* nb_valid_gpios, int ** valid_gpio_pins, bool ** gpio_pins_active_high);
 void print_all_chained_list(STRUCT_MAPPED_GPIO * head);
 void print_chained_list_node(STRUCT_MAPPED_GPIO * node);
 void print_gpios(int * valid_gpio_pins, int nb_valid_gpios);

@@ -6,7 +6,7 @@
 ****************************************************************/
 #include "gpio-utils.h"
 #include "uinput.h" 
-#include "read_conf_file.h"
+#include "read_conf_file.h" 
 
 /****************************************************************
 * Defines
@@ -17,7 +17,9 @@
 /****************************************************************
 * Public functions
 ****************************************************************/
-int init_mapping_gpios(int * gpio_pins_to_declare, int nb_gpios_to_declare, 
+int init_mapping_gpios(int * gpio_pins_to_declare, 
+	bool * gpios_pins_active_high_declared, 
+	int nb_gpios_to_declare, 
 	STRUCT_MAPPED_GPIO * chained_list_mapping_gpios);
 int deinit_mapping_gpios(void);
 int listen_gpios_interrupts(void);

@@ -45,7 +45,8 @@ int main(int argc, char **argv, char **envp)
 	// Variables
 	STRUCT_MAPPED_GPIO * chained_list_mapping = NULL;
 	int nb_valid_gpios = 0;
-	int * gpio_pins = NULL;
+	int * gpio_pins_idx_declared = NULL;
+	bool * gpios_pins_active_high = NULL;
 
 	// Set the signal callback for Ctrl-C
 	signal(SIGINT, signal_handler);
@@ -54,10 +55,10 @@ int main(int argc, char **argv, char **envp)
 	init_uinput();
 
 	// Read Conf File: Get GPIO pins to declare and all valid pin mappings
-	get_mapping_from_conf_file(&chained_list_mapping, &nb_valid_gpios, &gpio_pins);
+	get_mapping_from_conf_file(&chained_list_mapping, &nb_valid_gpios, &gpio_pins_idx_declared, &gpios_pins_active_high);
 
 	// Init GPIOs 
-	init_mapping_gpios(gpio_pins, nb_valid_gpios, chained_list_mapping);
+	init_mapping_gpios(gpio_pins_idx_declared, gpios_pins_active_high, nb_valid_gpios, chained_list_mapping);
 	
 	// Main Loop
 	while (keepgoing) {

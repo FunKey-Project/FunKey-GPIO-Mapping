@@ -19,11 +19,18 @@
     } while(0)
 
 #define DEBUG_READ_CONF_FILE_PRINTF 			(0)
+#define ERROR_READ_CONF_FILE_PRINTF 			(1)
 
 #if (DEBUG_READ_CONF_FILE_PRINTF)
 	#define READ_CONF_FILE_PRINTF(...) printf(__VA_ARGS__);
 #else
 	#define READ_CONF_FILE_PRINTF(...)
+#endif
+
+#if (ERROR_READ_CONF_FILE_PRINTF)
+	#define ERROR_CONF_FILE_PRINTF(...) printf(__VA_ARGS__);
+#else
+	#define ERROR_CONF_FILE_PRINTF(...)
 #endif
 
 
@@ -39,6 +46,7 @@ extern key_names_s key_names[];
 static STRUCT_MAPPED_GPIO * head_chained_list_mapping_gpio = NULL;
 static int count_valid_gpios = 0;
 static int gpio_pins[MAX_NUM_GPIO];
+static bool gpio_active_high[MAX_NUM_GPIO];
 
 
 /****************************************************************
@@ -136,7 +144,7 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
  * Public functions
  ****************************************************************/
  void get_mapping_from_conf_file(STRUCT_MAPPED_GPIO ** chained_list_mapping, 
- 	int* nb_valid_gpios, int ** valid_gpio_pins){
+ 	int* nb_valid_gpios, int ** valid_gpio_pins, bool ** gpio_pins_active_high){
  	/* Variables */
 	READ_CONF_FILE_PRINTF("Reading the config file:\n");
 	FILE *fp;
@@ -164,7 +172,7 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
 		}
 	}
 	if(fp){
-		READ_CONF_FILE_PRINTF("Config file found at %s\n", conffile);
+		printf("GPIO config file used: %s\n", conffile);
 	}
 
 	/* Main loop to read conf file (purposely exploded and not in multiple sub-functions) */
@@ -183,14 +191,25 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
 					//count nb valid GPIOs and store them
 					token = strtok(ln, ",");
 					while(token != NULL){
+						// Search for char '*' which means active low
+						bool cur_active_high = true;
+						char *substr = strchr(token, '*');
+						if(substr != NULL){
+							// Save polarity and set this char to \0 to end string
+							cur_active_high = false;
+							substr[0] = 0;
+						}
+
+						// Read pin idx
 						token_int = atoi(token);
 						if(token_int || !strcmp(token, "0")){
 							gpio_pins[count_valid_gpios] = token_int;
+							gpio_active_high[count_valid_gpios] = cur_active_high;
 							count_valid_gpios++;
-							READ_CONF_FILE_PRINTF("GPIO %d declared\n", token_int);
+							READ_CONF_FILE_PRINTF("GPIO %d declared - active %s\n", token_int, cur_active_high?"high":"low");
 						}
 						else{
-							READ_CONF_FILE_PRINTF("Could not declare GPIO: %s\n", token);
+							ERROR_CONF_FILE_PRINTF("Could not declare GPIO: %s\n", token);
 						}
 						token = strtok(NULL, ",");
 					}
@@ -225,7 +244,7 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
 									if(cur_pin || !strcmp(token_plus, "0")){
 										int idx_cur_pin = get_idx_pin(gpio_pins, count_valid_gpios, cur_pin);
 										if(idx_cur_pin == -1){
-											READ_CONF_FILE_PRINTF("		Could not find GPIO: %s in previously instanciated GPIOs\n", token_plus);
+											ERROR_CONF_FILE_PRINTF("		Could not find GPIO: %s in previously instanciated GPIOs\n", token_plus);
 											add_current_mapping = false;
 											break;
 										}
@@ -234,7 +253,7 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
 										READ_CONF_FILE_PRINTF("		GPIO %d in current mapping\n", cur_pin);
 									}
 									else{
-										READ_CONF_FILE_PRINTF("		Could not find GPIO: %s\n", token_plus);
+										ERROR_CONF_FILE_PRINTF("		Could not find GPIO: %s\n", token_plus);
 										add_current_mapping = false;
 										break;
 									}
@@ -250,7 +269,7 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
 									cur_gpio_mapping.type_mapping = TYPE_MAPPING_SHELL_COMMAND;
 								}
 								else{
-									READ_CONF_FILE_PRINTF("		%s is not a valid mapping type\n", current_arg);
+									ERROR_CONF_FILE_PRINTF("		%s is not a valid mapping type\n", current_arg);
 									add_current_mapping = false;
 									break;
 								}
@@ -260,7 +279,7 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
 									case TYPE_MAPPING_KEYBOARD:
 										cur_gpio_mapping.key_value = find_key(current_arg);
 										if(!cur_gpio_mapping.key_value){
-											READ_CONF_FILE_PRINTF("		Could not find Key: %s\n", current_arg);
+											ERROR_CONF_FILE_PRINTF("		Could not find Key: %s\n", current_arg);
 											add_current_mapping = false;
 										}
 										break;
@@ -269,7 +288,7 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
 										strcpy(cur_gpio_mapping.shell_command, current_arg);
 										break;
 									default:
-										READ_CONF_FILE_PRINTF("		%d is not a valid mapping type\n", cur_gpio_mapping.type_mapping);
+										ERROR_CONF_FILE_PRINTF("		%d is not a valid mapping type\n", cur_gpio_mapping.type_mapping);
 										add_current_mapping = false;
 										break;
 								}
@@ -299,7 +318,7 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
 						READ_CONF_FILE_PRINTF("Current Mapping added successfully\n\n");
 					}
 					else{
-						READ_CONF_FILE_PRINTF("Current Mapping not added\n\n");
+						ERROR_CONF_FILE_PRINTF("Current Mapping not added\n\n");
 					}
 				}
 			}
@@ -319,6 +338,7 @@ static void push(STRUCT_MAPPED_GPIO ** head, STRUCT_MAPPED_GPIO * new_mapping) {
 	*chained_list_mapping = head_chained_list_mapping_gpio;
 	*nb_valid_gpios = count_valid_gpios;
 	*valid_gpio_pins = gpio_pins;
+	*gpio_pins_active_high = gpio_active_high;
  }
 
 
