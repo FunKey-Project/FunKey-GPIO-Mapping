@@ -15,6 +15,7 @@
 
 // Chip registers adresses
 #define AXP209_REG_32H						0x32 
+#define AXP209_REG_PEK_PARAMS				0x36 
 #define AXP209_INTERRUPT_BANK_1_ENABLE		0x40 
 #define AXP209_INTERRUPT_BANK_1_STATUS		0x48 
 #define AXP209_INTERRUPT_BANK_2_ENABLE		0x41

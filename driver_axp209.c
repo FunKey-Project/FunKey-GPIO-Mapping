@@ -60,7 +60,13 @@ bool axp209_init(void) {
         }
     }	
 
-    /* Set N_OE Shutdown delay to 3S*/
+    /* Set PEK Long press delay to 2.5s*/
+    err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_REG_PEK_PARAMS, 0x9F);
+    if(err < 0){
+        printf("ERROR Setting AXP209 PEK Long press delay to 2.5s\n");
+    }
+
+    /* Set N_OE Shutdown delay to 3s*/
     err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_REG_32H, 0x47);
     if(err < 0){
         printf("ERROR Setting AXP209 N_OE Shutdown delay to 3S\n");

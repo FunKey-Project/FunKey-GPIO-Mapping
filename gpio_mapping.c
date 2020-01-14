@@ -54,6 +54,7 @@
 
 #define KEY_IDX_MAPPED_FOR_SHORT_PEK_PRESS	16 	//KEY_Q
 #define KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS	28 	//KEY_ENTER
+#define SHELL_CMD_LONG_PEK_PRESS			"poweroff"
 
 
 /****************************************************************
@@ -410,7 +411,9 @@ int listen_gpios_interrupts(void)
 		}
 		if(val_int_bank_3 & AXP209_INTERRUPT_PEK_LONG_PRESS){
 			GPIO_PRINTF("	AXP209 long PEK key press detected\n");
-			sendKeyAndStopKey(KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS);
+			//sendKeyAndStopKey(KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS); SHELL_CMD_LONG_PEK_PRESS
+			GPIO_PRINTF("Apply mapping activation fct: shell command \"%s\"\n", SHELL_CMD_LONG_PEK_PRESS);
+			system(SHELL_CMD_LONG_PEK_PRESS);
 		}
 	}
 #endif //ENABLE_AXP209_INTERRUPTS
