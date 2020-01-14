@@ -61,7 +61,7 @@ bool axp209_init(void) {
     }	
 
     /* Set N_OE Shutdown delay to 3S*/
-    err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_REG_32H, 0x43);
+    err = i2c_smbus_write_byte_data(fd_axp209 , AXP209_REG_32H, 0x47);
     if(err < 0){
         printf("ERROR Setting AXP209 N_OE Shutdown delay to 3S\n");
     }
