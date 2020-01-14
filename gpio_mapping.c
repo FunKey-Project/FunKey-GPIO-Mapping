@@ -149,7 +149,8 @@ static void find_and_call_mapping_function(int idx_gpio_interrupted,
 			}
 
 			// Check if all other pins of current mapping are activated or were already activated in previous mask
-			if(!mask_gpio_values[current->pins_idx[i]] && gpios_pins_active_high[current->pins_idx[i]]){
+			if( (!mask_gpio_values[current->pins_idx[i]] && gpios_pins_active_high[current->pins_idx[i]]) ||
+				(mask_gpio_values[current->pins_idx[i]] && !gpios_pins_active_high[current->pins_idx[i]]) ){
 				all_gpio_activated_in_mapping = false;
 			}
 		}
