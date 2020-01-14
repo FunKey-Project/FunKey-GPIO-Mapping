@@ -22,7 +22,7 @@
         return(EXIT_FAILURE); \
     } while(0)
 
-#define DEBUG_GPIO_PRINTF 			(1)
+#define DEBUG_GPIO_PRINTF 			(0)
 #define DEBUG_PERIODIC_CHECK_PRINTF (0)
 #define ERROR_GPIO_PRINTF 			(1)
 
