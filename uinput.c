@@ -48,7 +48,8 @@
   #define UINPUT_PRINTF(...)
 #endif
     
-#define SLEEP_TIME_SEND_STOP_KEY_US   20*1000
+//#define SLEEP_TIME_SEND_STOP_KEY_US   20*1000
+#define SLEEP_TIME_SEND_STOP_KEY_US   200*1000
 
 #define die(str, args...) do { \
         perror(str); \
