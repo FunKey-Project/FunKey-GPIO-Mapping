@@ -54,7 +54,7 @@
 
 #define KEY_IDX_MAPPED_FOR_SHORT_PEK_PRESS	16 	//KEY_Q
 #define KEY_IDX_MAPPED_FOR_LONG_PEK_PRESS	28 	//KEY_ENTER
-#define SHELL_CMD_LONG_PEK_PRESS			"shutdown_funkey"
+#define SHELL_CMD_LONG_PEK_PRESS			"sched_shutdown 1 & signal_usr1_to_emulators"
 
 
 /****************************************************************
