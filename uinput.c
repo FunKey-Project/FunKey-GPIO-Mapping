@@ -56,6 +56,19 @@
         return(EXIT_FAILURE); \
     } while(0)
 
+// For compatibility with kernels having dates on 32 bits
+struct timeval_compat
+{
+  unsigned int tv_sec;
+  long int tv_usec;
+};
+
+struct input_event_compat {
+    struct timeval_compat time;
+    unsigned short type;
+    unsigned short code;
+    unsigned int value;
+};
 
 /****************************************************************
  * Static functions declaration
@@ -185,7 +198,7 @@ int close_uinput(void)
 
 int sendKey(int key, int value)
 {
-  struct input_event ie;
+  struct input_event_compat ie;
   //memset(&uidev_ev, 0, sizeof(struct input_event));
   //gettimeofday(&uidev_ev.time, NULL);
   ie.type = EV_KEY;
@@ -194,7 +207,7 @@ int sendKey(int key, int value)
   ie.time.tv_sec = 0;
   ie.time.tv_usec = 0;
   UINPUT_PRINTF("sendKey: %d = %d\n", key, value);
-  if(write(uidev_fd, &ie, sizeof(struct input_event)) < 0)
+  if(write(uidev_fd, &ie, sizeof(struct input_event_compat)) < 0)
     die("error: write");
 
   sendSync();
