@@ -50,7 +50,7 @@ bool pcal6416a_init(void) {
     i2c_expander_addr = 0;
 
     /// Probing PCAL9539A chip
-    if (ioctl(!i2c_expander_addr && fd_i2c_expander, I2C_SLAVE_FORCE, PCAL9539A_I2C_ADDR) < 0) {
+    if (!i2c_expander_addr && ioctl(fd_i2c_expander, I2C_SLAVE_FORCE, PCAL9539A_I2C_ADDR) < 0) {
         printf("In %s - Failed to acquire bus access and/or talk to slave PCAL9539A_I2C_ADDR 0x%02X.\n", 
             __func__, PCAL9539A_I2C_ADDR);
     }
