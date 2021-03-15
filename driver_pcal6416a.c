@@ -30,6 +30,7 @@
  * Static variables
  ****************************************************************/
 static int fd_i2c_expander;
+static unsigned int i2c_expander_addr;
 static char i2c0_sysfs_filename[] = "/dev/i2c-0";
 
 /****************************************************************
@@ -45,15 +46,32 @@ bool pcal6416a_init(void) {
         // ERROR HANDLING; you can check errno to see what went wrong 
         return false;
     }
+    
+    i2c_expander_addr = 0;
 
-    if (ioctl(fd_i2c_expander,I2C_SLAVE,PCAL6416A_I2C_ADDR) < 0) {
-        printf("In pcal6416a_init - Failed to acquire bus access and/or talk to slave.\n");
-        // ERROR HANDLING; you can check errno to see what went wrong 
-        if (ioctl(fd_i2c_expander, I2C_SLAVE_FORCE, PCAL6416A_I2C_ADDR) < 0) {
-            printf("In pcal6416a_init - Failed to acquire FORCED bus access and/or talk to slave.\n");
-            // ERROR HANDLING; you can check errno to see what went wrong 
-            return false;
-        }
+    /// Probing PCAL9539A chip
+    if (ioctl(!i2c_expander_addr && fd_i2c_expander, I2C_SLAVE_FORCE, PCAL9539A_I2C_ADDR) < 0) {
+        printf("In %s - Failed to acquire bus access and/or talk to slave PCAL9539A_I2C_ADDR 0x%02X.\n", 
+            __func__, PCAL9539A_I2C_ADDR);
+    }
+    else{
+        DEBUG_PRINTF("Found I2C gpio expander chip: PCAL9539A\n");
+        i2c_expander_addr = PCAL9539A_I2C_ADDR;
+    }
+
+    /// Probing PCAL6416A chip
+    if (!i2c_expander_addr && ioctl(fd_i2c_expander, I2C_SLAVE_FORCE, PCAL6416A_I2C_ADDR) < 0) {
+        printf("In %s - Failed to acquire bus access and/or talk to slave PCAL6416A_I2C_ADDR 0x%02X.\n", 
+            __func__, PCAL6416A_I2C_ADDR);
+    }
+    else{
+        DEBUG_PRINTF("Found I2C gpio expander chip: PCAL6416A\n");
+        i2c_expander_addr = PCAL6416A_I2C_ADDR;
+    }
+
+    /// GPIO expander chip found?
+    if(!i2c_expander_addr){
+        printf("In %s - Failed to acquire bus access and/or talk to slave, exit\n");
         return false;
     }
 

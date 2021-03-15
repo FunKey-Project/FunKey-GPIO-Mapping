@@ -12,6 +12,7 @@
  ****************************************************************/
 // Chip physical address
 #define PCAL6416A_I2C_ADDR			0x20
+#define PCAL9539A_I2C_ADDR			0x76
 
 // Chip registers adresses
 #define PCAL6416A_INPUT				0x00 /* Input port [RO] */
