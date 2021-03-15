@@ -46,7 +46,7 @@ bool pcal6416a_init(void) {
         // ERROR HANDLING; you can check errno to see what went wrong 
         return false;
     }
-    
+
     i2c_expander_addr = 0;
 
     /// Probing PCAL9539A chip
@@ -71,7 +71,7 @@ bool pcal6416a_init(void) {
 
     /// GPIO expander chip found?
     if(!i2c_expander_addr){
-        printf("In %s - Failed to acquire bus access and/or talk to slave, exit\n");
+        printf("In %s - Failed to acquire bus access and/or talk to slave, exit\n", __func__);
         return false;
     }
 
