@@ -491,4 +491,3 @@ int listen_gpios_interrupts(void)
 
 	return 0;
 }
-

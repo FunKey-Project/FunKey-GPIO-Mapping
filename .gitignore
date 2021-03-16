@@ -4,3 +4,4 @@
 ###################
 *.o
 funkey_gpio_management
+termfix
