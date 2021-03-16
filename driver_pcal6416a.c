@@ -62,18 +62,20 @@ bool pcal6416a_init(void) {
         // ERROR HANDLING; you can check errno to see what went wrong 
         return false;
     }
+    
+    /// Probing known I2C GPIO expander chips
     for (i = 0, i2c_expander_addr = 0; i2c_chip[i].address; i++) {
 
-        /// Probing I2C GPIO expander chip
         if (ioctl(fd_i2c_expander, I2C_SLAVE_FORCE, i2c_chip[i]) < 0 ||
 	    pcal6416a_read_mask_interrupts() < 0) {
-            printf("In %s - Failed to acquire bus access and/or talk to slave %s at address 0x%02X.\n",
+            DEBUG_PRINTF("In %s - Failed to acquire bus access and/or talk to slave %s at address 0x%02X.\n",
 		   __func__, i2c_chip[i].name, i2c_chip[i].address);
-	} else {
-	    DEBUG_PRINTF("Found I2C gpio expander chip %s at address 0x%02X\n",
-	        i2c_chip[i].name, i2c_chip[i].address);
-	    i2c_expander_addr = i2c_chip[i].address;
-	}
+    	} else {
+    	    DEBUG_PRINTF("Found I2C gpio expander chip %s at address 0x%02X\n",
+    	        i2c_chip[i].name, i2c_chip[i].address);
+    	    i2c_expander_addr = i2c_chip[i].address;
+            break;
+    	}
     }
 
     /// GPIO expander chip found?
